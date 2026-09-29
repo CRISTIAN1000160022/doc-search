@@ -9,4 +9,5 @@ export interface DocumentRecord extends DocumentMetadata {
   extractedText: string | null;
   error: string | null;
   createdAt: Date;
+  mediaType: "application/pdf" | "text/plain" | "text/markdown";
 }
