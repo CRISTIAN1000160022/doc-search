@@ -10,7 +10,8 @@ RUN npm ci
 COPY backend backend
 COPY frontend frontend
 COPY packages/shared packages/shared
-RUN npm run build:shared && npm run build --workspace @doc-search/backend
+RUN npm run build:shared && npm run build --workspace @doc-search/backend -- --incremental false
+RUN test -f backend/dist/main.js && test -f backend/dist/worker.js
 RUN npm prune --omit=dev
 
 FROM node:20-alpine AS runtime

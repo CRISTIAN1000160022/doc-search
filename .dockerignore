@@ -2,6 +2,10 @@
 .next
 coverage
 node_modules
+node_modules/
+dist/
+*.tsbuildinfo
+.swc/
 **/node_modules
 **/dist
 storage

@@ -10,11 +10,14 @@ import { LocalDocumentStorage } from "../storage/local-document.storage";
 import { DocumentsController } from "./documents.controller";
 import { OutboxDispatcher } from "./outbox.dispatcher";
 import { SearchModule } from "../search/search.module";
+import { AuthModule } from "../auth/auth.module";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([DocumentEntity, OutboxEntity]),
     BullModule.registerQueue({ name: "documents" }),
+    AuthModule,
     SearchModule,
   ],
   controllers: [DocumentsController],
@@ -23,6 +26,7 @@ import { SearchModule } from "../search/search.module";
     LocalDocumentStorage,
     TypeOrmDocumentRepository,
     { provide: DOCUMENT_REPOSITORY, useExisting: TypeOrmDocumentRepository },
+    JwtAuthGuard,
     OutboxDispatcher,
   ],
   exports: [DOCUMENT_REPOSITORY, TypeOrmDocumentRepository, SearchModule],
