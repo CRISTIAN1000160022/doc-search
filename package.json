@@ -12,7 +12,8 @@
     "packages/shared"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build:shared && npm run build --workspaces --if-present",
+    "build:shared": "npm run build --workspace @doc-search/shared",
     "test": "npm run test --workspace backend --if-present",
     "lint": "npm run lint --workspaces --if-present"
   }

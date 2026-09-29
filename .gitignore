@@ -37,6 +37,7 @@ Thumbs.db
 
 # Test and coverage artifacts
 *.lcov
+*.tsbuildinfo
 test-results/
 playwright-report/
 
