@@ -9,11 +9,13 @@ import { TypeOrmDocumentRepository } from "../persistence/typeorm-document.repos
 import { LocalDocumentStorage } from "../storage/local-document.storage";
 import { DocumentsController } from "./documents.controller";
 import { OutboxDispatcher } from "./outbox.dispatcher";
+import { SearchModule } from "../search/search.module";
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([DocumentEntity, OutboxEntity]),
     BullModule.registerQueue({ name: "documents" }),
+    SearchModule,
   ],
   controllers: [DocumentsController],
   providers: [
@@ -23,6 +25,6 @@ import { OutboxDispatcher } from "./outbox.dispatcher";
     { provide: DOCUMENT_REPOSITORY, useExisting: TypeOrmDocumentRepository },
     OutboxDispatcher,
   ],
-  exports: [DOCUMENT_REPOSITORY, TypeOrmDocumentRepository],
+  exports: [DOCUMENT_REPOSITORY, TypeOrmDocumentRepository, SearchModule],
 })
 export class DocumentsModule {}

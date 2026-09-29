@@ -9,6 +9,8 @@ import { OutboxEntity } from "./infrastructure/persistence/outbox.entity";
 import { AuthModule } from "./infrastructure/auth/auth.module";
 import { DocumentsModule } from "./infrastructure/documents/documents.module";
 import { HealthController } from "./infrastructure/health/health.controller";
+import { SearchModule } from "./infrastructure/search/search.module";
+import { EventsModule } from "./infrastructure/events/events.module";
 
 @Module({
   imports: [
@@ -37,7 +39,9 @@ import { HealthController } from "./infrastructure/health/health.controller";
     }),
     ScheduleModule.forRoot(),
     AuthModule,
+    EventsModule,
     DocumentsModule,
+    SearchModule,
   ],
   controllers: [HealthController],
 })
