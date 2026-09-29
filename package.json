@@ -1,0 +1,19 @@
+{
+  "name": "doc-search",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Buscador y visor de documentos técnicos",
+  "engines": {
+    "node": ">=20 <21"
+  },
+  "workspaces": [
+    "backend",
+    "frontend",
+    "packages/shared"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspace backend --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  }
+}
