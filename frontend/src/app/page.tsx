@@ -31,6 +31,13 @@ interface TrackedUpload {
   connectionIssue?: string;
 }
 
+interface ActivityNotification {
+  id: string;
+  title: string;
+  status: "INDEXED" | "ERROR";
+  message: string;
+}
+
 const PAGE_SIZE = 10;
 
 function highlightText(fragment: string): ReactNode[] {
@@ -67,13 +74,41 @@ export default function HomePage() {
   const [selected, setSelected] = useState<SearchHit | null>(null);
   const [detail, setDetail] = useState<DocumentDetail | null>(null);
   const [tracked, setTracked] = useState<TrackedUpload[]>([]);
+  const [notifications, setNotifications] = useState<ActivityNotification[]>([]);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [selectedFileCount, setSelectedFileCount] = useState(0);
   const [searchError, setSearchError] = useState("");
   const aborters = useRef(new Map<string, AbortController>());
+  const notificationTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const notifiedDocuments = useRef(new Set<string>());
+  const notificationSequence = useRef(0);
 
-  useEffect(() => () => aborters.current.forEach((controller) => controller.abort()), []);
+  useEffect(() => () => {
+    aborters.current.forEach((controller) => controller.abort());
+    notificationTimers.current.forEach((timer) => clearTimeout(timer));
+  }, []);
+
+  function dismissNotification(id: string) {
+    const timer = notificationTimers.current.get(id);
+    if (timer) clearTimeout(timer);
+    notificationTimers.current.delete(id);
+    setNotifications((items) => items.filter((item) => item.id !== id));
+  }
+
+  function notifyDocumentStatus(title: string, status: "INDEXED" | "ERROR", error?: string) {
+    const id = `activity-${Date.now()}-${notificationSequence.current++}`;
+    const notification: ActivityNotification = {
+      id,
+      title,
+      status,
+      message: status === "INDEXED"
+        ? "El documento ya está disponible para buscar."
+        : error || "No fue posible procesar el documento.",
+    };
+    setNotifications((items) => [notification, ...items].slice(0, 3));
+    notificationTimers.current.set(id, setTimeout(() => dismissNotification(id), 7000));
+  }
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -130,6 +165,10 @@ export default function HomePage() {
               ? { ...item, status: event.status, ...(event.error ? { error: event.error } : {}), connectionIssue: undefined }
               : item));
             terminal = event.status === "INDEXED" || event.status === "ERROR";
+            if (terminal && !notifiedDocuments.current.has(id)) {
+              notifiedDocuments.current.add(id);
+              notifyDocumentStatus(title, event.status, event.error);
+            }
             if (event.status === "INDEXED" && query.trim()) void runSearch(currentToken, query);
           });
           if (terminal || controller.signal.aborted) return;
@@ -234,8 +273,22 @@ export default function HomePage() {
     <main className="workspace">
       <header className="topbar">
         <div className="brand"><div className="brand-icon"><BookOpenText size={19} /></div><strong>ATLAS</strong><span>DOCUMENTOS</span></div>
-        <div className="topbar-right"><div className="connection-state"><span /> API CONECTADA</div><button className="icon-button logout-button" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={() => { aborters.current.forEach((controller) => controller.abort()); setToken(""); }}><LogOut size={17} /></button></div>
+        <div className="topbar-right"><div className="connection-state"><span /> API CONECTADA</div><button className="icon-button logout-button" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={() => { aborters.current.forEach((controller) => controller.abort()); setNotifications([]); notifiedDocuments.current.clear(); setToken(""); }}><LogOut size={17} /></button></div>
       </header>
+
+      <div className="activity-notifications" aria-live="polite" aria-relevant="additions">
+        {notifications.map((notification) => (
+          <section className={`activity-notification notification-${notification.status.toLowerCase()}`} key={notification.id} role="status">
+            <span className="notification-icon">{notification.status === "INDEXED" ? <Check size={16} /> : <CircleAlert size={16} />}</span>
+            <div className="notification-copy">
+              <strong>{notification.status === "INDEXED" ? "Documento indexado" : "Error al procesar documento"}</strong>
+              <span className="notification-title">{notification.title}</span>
+              <small>{notification.message}</small>
+            </div>
+            <button className="notification-close" aria-label={`Cerrar aviso de ${notification.title}`} onClick={() => dismissNotification(notification.id)}><X size={15} /></button>
+          </section>
+        ))}
+      </div>
 
       <div className="app-grid">
         <aside className="sidebar">

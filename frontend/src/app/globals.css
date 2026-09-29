@@ -58,6 +58,17 @@ button:focus-visible, input:focus-visible { outline: 2px solid #32876c; outline-
 .topbar-right { display: flex; align-items: center; gap: 18px; }
 .connection-state { color: #66766e; font: 9px var(--mono); letter-spacing: .06em; display: flex; align-items: center; gap: 8px; }
 .connection-state > span { width: 7px; height: 7px; border-radius: 50%; background: #36a474; box-shadow: 0 0 0 3px #36a4741c; }
+.activity-notifications { position: fixed; z-index: 20; top: 72px; right: 22px; width: min(370px, calc(100vw - 32px)); display: grid; gap: 8px; pointer-events: none; }
+.activity-notification { min-width: 0; display: grid; grid-template-columns: 30px minmax(0,1fr) 26px; align-items: start; gap: 10px; padding: 12px; background: var(--surface); border: 1px solid var(--line-strong); border-left: 3px solid var(--green); box-shadow: 0 8px 25px #1b3b2818; pointer-events: auto; animation: arrive .2s ease both; }
+.notification-error { border-left-color: var(--coral); }
+.notification-icon { width: 28px; height: 28px; display: grid; place-items: center; color: var(--green); background: var(--green-soft); }
+.notification-error .notification-icon { color: #a74835; background: var(--coral-soft); }
+.notification-copy { min-width: 0; display: grid; gap: 4px; }
+.notification-copy strong { font-size: 11px; font-weight: 500; color: var(--ink); }
+.notification-title { overflow: hidden; color: #53635a; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.notification-copy small { color: var(--muted); font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
+.notification-close { width: 25px; height: 25px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 2px; background: transparent; color: #87938c; cursor: pointer; }
+.notification-close:hover { color: var(--ink); border-color: var(--line); background: #f5f8f5; }
 .icon-button { width: 31px; height: 31px; display: inline-grid; place-items: center; border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer; border-radius: 2px; }
 .icon-button:hover { background: var(--green-soft); color: var(--green); border-color: var(--line); }
 .app-grid { flex: 1; min-height: calc(100vh - 91px); display: grid; grid-template-columns: 218px minmax(360px, 1fr) minmax(280px, 355px); }
@@ -209,6 +220,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid #32876c; outline-
 }
 @media (max-width: 620px) {
   .topbar { padding: 0 15px; }
+  .activity-notifications { top: 66px; right: 10px; width: min(370px, calc(100vw - 20px)); }
   .brand > span { display: none; }
   .app-grid { display: flex; flex-direction: column; }
   .sidebar { padding: 10px 13px; border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
