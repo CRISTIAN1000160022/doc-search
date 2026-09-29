@@ -32,6 +32,8 @@ export class ElasticsearchDocumentIndex implements OnModuleInit {
         });
       }
     } catch (error) {
+      const cause = error as { meta?: { statusCode?: number; body?: { error?: { type?: string } } } };
+      if (cause.meta?.statusCode === 400 && cause.meta.body?.error?.type === "resource_already_exists_exception") return;
       this.logger.error("No se pudo asegurar el índice de documentos", error);
       throw error;
     }

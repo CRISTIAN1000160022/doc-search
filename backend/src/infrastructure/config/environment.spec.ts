@@ -7,6 +7,7 @@ const completeConfig = {
   POSTGRES_DB: "docsearch",
   POSTGRES_USER: "docsearch",
   POSTGRES_PASSWORD: "password",
+  POSTGRES_PORT: "5432",
   REDIS_HOST: "redis",
   ELASTICSEARCH_NODE: "http://elastic:9200",
 };

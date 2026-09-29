@@ -6,6 +6,7 @@ import { Queue } from "bullmq";
 import { IsNull, LessThanOrEqual, Repository } from "typeorm";
 import { DocumentEntity } from "../persistence/document.entity";
 import { OutboxEntity } from "../persistence/outbox.entity";
+import { RedisStatusEvents } from "../events/redis-status-events.service";
 
 @Injectable()
 export class OutboxDispatcher {
@@ -16,6 +17,7 @@ export class OutboxDispatcher {
     @InjectRepository(OutboxEntity) private readonly outbox: Repository<OutboxEntity>,
     @InjectRepository(DocumentEntity) private readonly documents: Repository<DocumentEntity>,
     @InjectQueue("documents") private readonly queue: Queue,
+    private readonly statusEvents: RedisStatusEvents,
   ) {}
 
   @Interval(1000)
@@ -51,6 +53,15 @@ export class OutboxDispatcher {
             await this.documents.update({ id: event.aggregateId }, {
               status: "ERROR",
               error: "No fue posible encolar el documento después de varios intentos",
+            });
+            void this.statusEvents.publish({
+              documentId: event.aggregateId,
+              ownerId: event.payload.ownerId ?? "",
+              status: "ERROR",
+              error: "No fue posible encolar el documento después de varios intentos",
+              occurredAt: new Date().toISOString(),
+            }).catch((publishError: unknown) => {
+              this.logger.warn(`No se pudo publicar el estado ERROR de ${event.aggregateId}: ${String(publishError)}`);
             });
           }
           this.logger.error(`No se pudo publicar el evento Outbox ${event.id}`, error);

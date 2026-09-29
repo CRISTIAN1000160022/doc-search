@@ -31,6 +31,12 @@ describe("ElasticsearchDocumentIndex", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it("tolerates another process creating the index concurrently", async () => {
+    exists.mockResolvedValue(false);
+    create.mockRejectedValueOnce({ meta: { statusCode: 400, body: { error: { type: "resource_already_exists_exception" } } } });
+    await expect(service.onModuleInit()).resolves.toBeUndefined();
+  });
+
   it("indexes by document id with owner and extracted content", async () => {
     const record = {
       id: "doc-1", ownerId: "owner-1", title: "Manual", author: "Team", category: "Docs", tags: [],

@@ -9,6 +9,8 @@ describe("AuthService", () => {
   beforeEach(() => {
     process.env.JWT_DEMO_USERNAME = "demo-user";
     process.env.JWT_DEMO_PASSWORD = "long-demo-password";
+    delete process.env.JWT_DEMO_USERNAME_2;
+    delete process.env.JWT_DEMO_PASSWORD_2;
     jwt = { signAsync: jest.fn() } as unknown as jest.Mocked<JwtService>;
     jwt.signAsync.mockResolvedValue("signed-token");
     service = new AuthService(jwt);
@@ -21,6 +23,13 @@ describe("AuthService", () => {
       expiresIn: 900,
     });
     expect(jwt.signAsync).toHaveBeenCalledWith({ sub: "00000000-0000-4000-8000-000000000001", username: "demo-user" });
+  });
+
+  it("supports a second configured demo identity for ownership isolation", async () => {
+    process.env.JWT_DEMO_USERNAME_2 = "reviewer";
+    process.env.JWT_DEMO_PASSWORD_2 = "reviewer-password";
+    await service.login("reviewer", "reviewer-password");
+    expect(jwt.signAsync).toHaveBeenCalledWith({ sub: "00000000-0000-4000-8000-000000000002", username: "reviewer" });
   });
 
   it.each([["other-user", "long-demo-password"], ["demo-user", "wrong"]])(

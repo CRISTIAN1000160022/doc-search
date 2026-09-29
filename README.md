@@ -15,18 +15,22 @@ npm install
 docker compose up --build -d
 ```
 
+El secreto JWT de `.env.example` es una cadena local válida para arrancar; reemplázalo por un valor aleatorio antes de compartir el entorno.
+
 Los servicios publican sus puertos solo en `127.0.0.1`. La API queda en `http://localhost:3001/api` y la salud en `/api/health`. El worker comparte con la API el volumen `./storage`. Elasticsearch usa un nodo local de desarrollo con seguridad desactivada; no usar esta configuración en producción.
 
 La interfaz Next.js se ejecuta en el host para usar NVM:
 
 ```powershell
 nvm use 20
-npm run dev --workspace @doc-search/frontend
+npm run dev
 ```
 
-Credenciales demo por defecto: usuario `demo`; contraseña `local_dev_only_change_me`. Cambia los valores del archivo `.env` antes de compartir el entorno. El archivo `.env` está excluido de Git.
+Credenciales demo por defecto: `demo` / `local_dev_only_change_me` y `reviewer` / `local_dev_only_change_me_too`. Son identidades locales para probar el aislamiento por propietario, no cuentas productivas. Cambia los valores del archivo `.env` antes de compartir el entorno. El archivo `.env` está excluido de Git.
 
 Para detener los servicios: `docker compose down`. Para conservar los datos se mantienen los volúmenes nombrados; `docker compose down -v` los elimina y debe usarse solo cuando se quiera reiniciar la base local.
+
+La selección múltiple envía cada archivo como una solicitud independiente y cada uno recibe un ID/SSE propio. La contraseña, JWT secret y credenciales de PostgreSQL de `.env.example` son solo para desarrollo. Node.js 20 terminó soporte el 30 de abril de 2026; se fija por el requisito de la prueba, pero no debe adoptarse como runtime nuevo para producción.
 
 ## Estructura
 

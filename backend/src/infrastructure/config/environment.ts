@@ -6,6 +6,7 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     "POSTGRES_DB",
     "POSTGRES_USER",
     "POSTGRES_PASSWORD",
+    "POSTGRES_PORT",
     "REDIS_HOST",
     "ELASTICSEARCH_NODE",
   ];

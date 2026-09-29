@@ -40,7 +40,13 @@ export class DocumentsController {
   @HttpCode(HttpStatus.ACCEPTED)
   @UseInterceptors(FileInterceptor("file", {
     storage: memoryStorage(),
-    limits: { fileSize: Number(process.env.MAX_UPLOAD_BYTES ?? 10 * 1024 * 1024), files: 1 },
+    limits: {
+      fileSize: Number(process.env.MAX_UPLOAD_BYTES ?? 10 * 1024 * 1024),
+      files: 1,
+      fields: 5,
+      fieldSize: 16 * 1024,
+      parts: 6,
+    },
   }))
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
   async upload(
