@@ -4,12 +4,15 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   MessageEvent,
+  NotFoundException,
   Post,
   Param,
   Sse,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -26,6 +29,9 @@ import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { DocumentMetadataDto } from "../../application/documents/document-metadata.dto";
 import { UploadDocumentUseCase } from "../../application/documents/upload-document.use-case";
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
+import { basename } from "node:path";
 
 @Controller("documents")
 @UseGuards(JwtAuthGuard)
@@ -45,7 +51,7 @@ export class DocumentsController {
       files: 1,
       fields: 5,
       fieldSize: 16 * 1024,
-      parts: 6,
+      parts: 10,
     },
   }))
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
@@ -72,7 +78,31 @@ export class DocumentsController {
       status: document.status,
       content: document.extractedText ?? "",
       createdAt: document.createdAt,
+      originalName: document.originalName,
+      mediaType: document.mediaType,
     };
+  }
+
+  @Get(":id/file")
+  @Header("X-Content-Type-Options", "nosniff")
+  async getOriginalFile(@CurrentUser() user: { sub: string }, @Param("id") id: string): Promise<StreamableFile> {
+    const document = await this.documents.findOwned(id, user.sub);
+    if (!document) throw new ForbiddenException("Documento inexistente o no autorizado");
+
+    try {
+      await stat(document.storagePath);
+    } catch {
+      throw new NotFoundException("El archivo original ya no está disponible");
+    }
+
+    const allowedMediaTypes = ["application/pdf", "text/plain", "text/markdown"] as const;
+    const mediaType = allowedMediaTypes.includes(document.mediaType) ? document.mediaType : "application/octet-stream";
+    const safeName = basename(document.originalName).replace(/[\r\n"]/g, "_");
+
+    return new StreamableFile(createReadStream(document.storagePath), {
+      type: mediaType,
+      disposition: `inline; filename*=UTF-8''${encodeURIComponent(safeName)}`,
+    });
   }
 
   @Sse(":id/status/stream")

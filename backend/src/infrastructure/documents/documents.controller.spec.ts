@@ -1,4 +1,7 @@
-import { ForbiddenException } from "@nestjs/common";
+import { ForbiddenException, NotFoundException, StreamableFile } from "@nestjs/common";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { firstValueFrom, of, toArray } from "rxjs";
 import type { DocumentRecord } from "../../domain/documents/document";
 import type { UploadDocumentUseCase } from "../../application/documents/upload-document.use-case";
@@ -36,10 +39,40 @@ describe("DocumentsController", () => {
 
   it("returns document metadata and extracted content only for its owner", async () => {
     repository.findOwned.mockResolvedValue(record);
-    await expect(controller.getDocument({ sub: "owner-1" }, "doc-1")).resolves.toMatchObject({ content: "Full document" });
+    await expect(controller.getDocument({ sub: "owner-1" }, "doc-1")).resolves.toMatchObject({
+      content: "Full document",
+      originalName: "doc.md",
+      mediaType: "text/markdown",
+    });
     expect(repository.findOwned).toHaveBeenCalledWith("doc-1", "owner-1");
     repository.findOwned.mockResolvedValueOnce(null);
     await expect(controller.getDocument({ sub: "owner-2" }, "doc-1")).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("streams the stored original file with its media type for the owner", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "doc-search-original-"));
+    const path = join(directory, "manual.pdf");
+    await writeFile(path, Buffer.from("%PDF-1.7 test"));
+    repository.findOwned.mockResolvedValue({ ...record, storagePath: path, originalName: "manual.pdf", mediaType: "application/pdf" });
+
+    try {
+      const file = await controller.getOriginalFile({ sub: "owner-1" }, "doc-1");
+      expect(file).toBeInstanceOf(StreamableFile);
+      expect(file.getHeaders()).toMatchObject({ type: "application/pdf" });
+      const chunks: Buffer[] = [];
+      for await (const chunk of file.getStream()) chunks.push(Buffer.from(chunk));
+      expect(Buffer.concat(chunks).toString()).toBe("%PDF-1.7 test");
+    } finally {
+      await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("does not expose originals to other users and reports missing stored files", async () => {
+    repository.findOwned.mockResolvedValue(null);
+    await expect(controller.getOriginalFile({ sub: "owner-2" }, "doc-1")).rejects.toBeInstanceOf(ForbiddenException);
+
+    repository.findOwned.mockResolvedValue(record);
+    await expect(controller.getOriginalFile({ sub: "owner-1" }, "doc-1")).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it("streams the persisted status immediately and completes on a terminal Pub/Sub event", async () => {
