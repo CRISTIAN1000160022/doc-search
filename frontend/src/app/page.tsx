@@ -21,7 +21,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { DocumentMetadata, DocumentStatus, PaginatedSearchResult, SearchHit } from "@doc-search/shared";
-import { followDocumentStatus, getDocument, login, searchDocuments, uploadDocument, type DocumentDetail } from "../lib/api";
+import { followDocumentStatus, getDocument, getOriginalDocumentFile, login, searchDocuments, uploadDocument, type DocumentDetail } from "../lib/api";
 
 interface TrackedUpload {
   id: string;
@@ -73,6 +73,10 @@ export default function HomePage() {
   const [results, setResults] = useState<PaginatedSearchResult | null>(null);
   const [selected, setSelected] = useState<SearchHit | null>(null);
   const [detail, setDetail] = useState<DocumentDetail | null>(null);
+  const [originalText, setOriginalText] = useState<string | null>(null);
+  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
+  const [originalLoading, setOriginalLoading] = useState(false);
+  const [previewError, setPreviewError] = useState("");
   const [tracked, setTracked] = useState<TrackedUpload[]>([]);
   const [notifications, setNotifications] = useState<ActivityNotification[]>([]);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -83,11 +87,49 @@ export default function HomePage() {
   const notificationTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const notifiedDocuments = useRef(new Set<string>());
   const notificationSequence = useRef(0);
+  const originalUrlRef = useRef<string | null>(null);
+  const selectedDocumentRequest = useRef(0);
 
   useEffect(() => () => {
     aborters.current.forEach((controller) => controller.abort());
     notificationTimers.current.forEach((timer) => clearTimeout(timer));
+    if (originalUrlRef.current) URL.revokeObjectURL(originalUrlRef.current);
   }, []);
+
+  function clearOriginalPreview() {
+    if (originalUrlRef.current) URL.revokeObjectURL(originalUrlRef.current);
+    originalUrlRef.current = null;
+    setOriginalUrl(null);
+    setOriginalText(null);
+    setPreviewError("");
+  }
+
+  async function loadDocumentDetail(currentToken: string, id: string) {
+    const request = ++selectedDocumentRequest.current;
+    clearOriginalPreview();
+    setDetail(null);
+    setOriginalLoading(true);
+    try {
+      const document = await getDocument(currentToken, id);
+      if (request !== selectedDocumentRequest.current) return;
+      setDetail(document);
+      const original = await getOriginalDocumentFile(currentToken, id);
+      if (request !== selectedDocumentRequest.current) return;
+      if (document.mediaType === "application/pdf") {
+        const objectUrl = URL.createObjectURL(original);
+        originalUrlRef.current = objectUrl;
+        setOriginalUrl(objectUrl);
+      } else {
+        setOriginalText(await original.text());
+      }
+    } catch (error) {
+      if (request === selectedDocumentRequest.current) {
+        setPreviewError(error instanceof Error ? error.message : "No fue posible cargar el archivo original");
+      }
+    } finally {
+      if (request === selectedDocumentRequest.current) setOriginalLoading(false);
+    }
+  }
 
   function dismissNotification(id: string) {
     const timer = notificationTimers.current.get(id);
@@ -134,7 +176,12 @@ export default function HomePage() {
       if (!page.items.some((item) => item.id === selected?.id)) {
         const first = page.items[0] ?? null;
         setSelected(first);
-        setDetail(first ? await getDocument(currentToken, first.id) : null);
+        if (first) void loadDocumentDetail(currentToken, first.id);
+        else {
+          selectedDocumentRequest.current += 1;
+          clearOriginalPreview();
+          setDetail(null);
+        }
       }
     } catch (error) {
       setSearchError(error instanceof Error ? error.message : "No fue posible realizar la búsqueda");
@@ -144,12 +191,8 @@ export default function HomePage() {
   async function selectDocument(hit: SearchHit) {
     if (!token) return;
     setSelected(hit);
-    setDetail(null);
-    try {
-      setDetail(await getDocument(token, hit.id));
-    } catch (error) {
-      setSearchError(error instanceof Error ? error.message : "No fue posible abrir el documento");
-    }
+    setSearchError("");
+    await loadDocumentDetail(token, hit.id);
   }
 
   function startTracking(currentToken: string, id: string, title: string) {
@@ -273,7 +316,7 @@ export default function HomePage() {
     <main className="workspace">
       <header className="topbar">
         <div className="brand"><div className="brand-icon"><BookOpenText size={19} /></div><strong>ATLAS</strong><span>DOCUMENTOS</span></div>
-        <div className="topbar-right"><div className="connection-state"><span /> API CONECTADA</div><button className="icon-button logout-button" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={() => { aborters.current.forEach((controller) => controller.abort()); setNotifications([]); notifiedDocuments.current.clear(); setToken(""); }}><LogOut size={17} /></button></div>
+        <div className="topbar-right"><div className="connection-state"><span /> API CONECTADA</div><button className="icon-button logout-button" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={() => { aborters.current.forEach((controller) => controller.abort()); setNotifications([]); notifiedDocuments.current.clear(); clearOriginalPreview(); setToken(""); }}><LogOut size={17} /></button></div>
       </header>
 
       <div className="activity-notifications" aria-live="polite" aria-relevant="additions">
@@ -355,7 +398,16 @@ export default function HomePage() {
             <div className="detail-status"><StatusPill status={detail?.status ?? selected.status} /><span>v{detail?.version ?? selected.version}</span></div>
             <div className="detail-meta"><div><small>AUTOR</small><span>{detail?.author ?? selected.author}</span></div><div><small>ETIQUETAS</small><span>{(detail?.tags ?? selected.tags).join(", ") || "Sin etiquetas"}</span></div><div><small>INGRESO</small><span>{detail ? new Date(detail.createdAt).toLocaleDateString("es-CO") : "—"}</span></div></div>
             <div className="content-label"><span>CONTENIDO</span><i /></div>
-            <article className="document-content">{detail ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{detail.content || "_El documento no contiene texto extraíble._"}</ReactMarkdown> : <div className="content-loading"><span /> Cargando contenido...</div>}</article>
+            <article className={`document-content ${detail?.mediaType === "application/pdf" ? "document-content-pdf" : ""}`}>
+              {!detail || originalLoading ? <div className="content-loading"><span /> Abriendo archivo original...</div> : <>
+                {previewError && <p className="preview-error"><CircleAlert size={14} />{previewError}; se muestra el texto indexado disponible.</p>}
+                {detail.mediaType === "application/pdf" && originalUrl
+                  ? <iframe className="pdf-preview" src={originalUrl} title={`Vista PDF: ${detail.originalName}`} />
+                  : detail.mediaType === "text/plain"
+                    ? <pre className="plain-text-preview">{originalText ?? detail.content ?? "El documento está vacío."}</pre>
+                    : <ReactMarkdown remarkPlugins={[remarkGfm]}>{originalText ?? detail.content ?? "_El documento no contiene texto extraíble._"}</ReactMarkdown>}
+              </>}
+            </article>
             <div className={`detail-foot ${detail?.status === "ERROR" ? "detail-foot-error" : ""}`}>
               {detail?.status === "INDEXED" ? <><Check size={14} /> Contenido procesado y disponible</> : detail?.status === "ERROR" ? <><CircleAlert size={14} /> No fue posible procesar este documento</> : <><Clock3 size={14} /> Documento en procesamiento</>}
             </div>

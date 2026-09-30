@@ -13,6 +13,8 @@ export interface DocumentDetail extends DocumentMetadata {
   status: "PROCESSING" | "INDEXED" | "ERROR";
   content: string;
   createdAt: string;
+  originalName: string;
+  mediaType: "application/pdf" | "text/plain" | "text/markdown";
 }
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -70,6 +72,17 @@ export async function getDocument(token: string, id: string): Promise<DocumentDe
     headers: { Authorization: `Bearer ${token}` },
   });
   return readJson(response);
+}
+
+export async function getOriginalDocumentFile(token: string, id: string): Promise<Blob> {
+  const response = await fetch(`${API_BASE}/documents/${encodeURIComponent(id)}/file`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({})) as { message?: string };
+    throw new Error(payload.message ?? `No fue posible abrir el original (${response.status})`);
+  }
+  return response.blob();
 }
 
 export async function followDocumentStatus(
